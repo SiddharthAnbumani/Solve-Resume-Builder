@@ -162,7 +162,7 @@ export default function Builder({ id }) {
       {/* ── Toolbar: back arrow + actions (no navbar on this page) ─────── */}
       <div className="flex shrink-0 items-center gap-1.5 px-4 py-3 sm:gap-2 print:hidden">
         <Link
-          href="/"
+          href={cloud ? "/dashboard" : "/"}
           aria-label="Back to my files"
           title="Back to my files"
           className={cn(buttonVariants({ variant: "outline", size: "icon-lg" }), "size-10 bg-background")}

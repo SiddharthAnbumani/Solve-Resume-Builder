@@ -172,6 +172,13 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* The canvas behind the page is black, so the notch, the safe areas and the
+   rubber-band overscroll never flash white. Each page paints its own
+   background on top of this. */
+html {
+  background-color: #000;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

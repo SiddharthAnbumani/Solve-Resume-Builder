@@ -10,20 +10,24 @@ import { Input } from "@/components/ui/input";
 import { signIn } from "../../lib/auth-client";
 import { isEmail } from "../../lib/validation";
 import { useAuth } from "../AuthProvider";
+import { dashboardUrl, useTemplateParam } from "../../lib/useTemplateParam";
+import { templateName } from "../../lib/templates";
 import FormField from "./FormField";
 import PasswordInput from "./PasswordInput";
 
 export default function SignInForm() {
   const router = useRouter();
   const { user, setUser } = useAuth();
+  const tpl = useTemplateParam();
+  const target = dashboardUrl(tpl);
   const [values, setValues] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
 
   // Already signed in? Nothing to do here.
   useEffect(() => {
-    if (user) router.replace("/");
-  }, [user, router]);
+    if (user) router.replace(target);
+  }, [user, router, target]);
 
   const set = (k) => (e) => {
     setValues((v) => ({ ...v, [k]: e.target.value }));
@@ -43,7 +47,7 @@ export default function SignInForm() {
       const signedIn = await signIn({ email: values.email.trim(), password: values.password });
       setUser(signedIn);
       toast.success(`Welcome back, ${signedIn.name.split(" ")[0]}.`);
-      router.push("/");
+      router.push(target);
     } catch (err) {
       if (err.status === 401 || err.status === 429) setErrors({ form: err.message });
       else toast.error(err.message || "Couldn't sign you in.");
@@ -55,7 +59,7 @@ export default function SignInForm() {
     <>
       <h1 className="text-center text-2xl font-semibold tracking-tight lg:text-left">Welcome back</h1>
       <p className="mt-1.5 text-center text-sm text-muted-foreground lg:text-left">
-        Sign in to open your saved resumes.
+        {tpl ? `Sign in to start your ${templateName(tpl)} resume.` : "Sign in to open your saved resumes."}
       </p>
 
       <form onSubmit={submit} noValidate className="mt-7 grid gap-5">
@@ -113,7 +117,7 @@ export default function SignInForm() {
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
         New here?{" "}
-        <Link href="/signup" className="font-medium text-foreground underline-offset-4 hover:underline">
+        <Link href={tpl ? `/signup?template=${tpl}` : "/signup"} className="font-medium text-foreground underline-offset-4 hover:underline">
           Create an account
         </Link>
       </p>

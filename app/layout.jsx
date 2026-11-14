@@ -33,10 +33,14 @@ export const metadata = {
   title: "Solve Resumé",
   applicationName: "Solve Resumé",
   icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
+  // Installed on the home screen (iOS): black status bar / notch area.
+  appleWebApp: { capable: true, title: "Solve Resumé", statusBarStyle: "black" },
   description: "Edit your resume in a form and download it as a PDF.",
 };
 
-export const viewport = { themeColor: "#000000" };
+// theme-color tints the browser's top bar (Android Chrome, Safari) black.
+// colorScheme keeps overscroll and safe areas from flipping to white.
+export const viewport = { themeColor: "#000000", colorScheme: "light" };
 
 export default function RootLayout({ children }) {
   return (

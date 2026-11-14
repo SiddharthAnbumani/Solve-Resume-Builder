@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { signUp } from "../../lib/auth-client";
 import { isEmail, passwordScore } from "../../lib/validation";
 import { useAuth } from "../AuthProvider";
+import { dashboardUrl, useTemplateParam } from "../../lib/useTemplateParam";
+import { templateName } from "../../lib/templates";
 import FormField from "./FormField";
 import PasswordInput from "./PasswordInput";
 
@@ -18,6 +20,8 @@ const STRENGTH = ["Too short", "Weak", "Okay", "Good", "Strong"];
 export default function SignUpForm() {
   const router = useRouter();
   const { user, setUser } = useAuth();
+  const tpl = useTemplateParam();
+  const target = dashboardUrl(tpl);
   const [values, setValues] = useState({
     name: "",
     email: "",
@@ -29,8 +33,8 @@ export default function SignUpForm() {
   const score = passwordScore(values.password);
 
   useEffect(() => {
-    if (user) router.replace("/");
-  }, [user, router]);
+    if (user) router.replace(target);
+  }, [user, router, target]);
 
   const set = (k) => (e) => {
     setValues((v) => ({ ...v, [k]: e.target.value }));
@@ -56,7 +60,7 @@ export default function SignUpForm() {
       });
       setUser(created);
       toast.success("Account created. Welcome!");
-      router.push("/");
+      router.push(target);
     } catch (err) {
       if (err.code === "EMAIL_TAKEN") setErrors({ email: err.message });
       else if (err.code === "VALIDATION" && err.details?.length) {
@@ -73,7 +77,7 @@ export default function SignUpForm() {
     <>
       <h1 className="text-center text-2xl font-semibold tracking-tight lg:text-left">Create your account</h1>
       <p className="mt-1.5 text-center text-sm text-muted-foreground lg:text-left">
-        Save your resumes and open them from any device.
+        {tpl ? `Create an account to start your ${templateName(tpl)} resume.` : "Save your resumes and open them from any device."}
       </p>
 
       <form onSubmit={submit} noValidate className="mt-7 grid gap-5">
@@ -166,7 +170,7 @@ export default function SignUpForm() {
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Already have an account?{" "}
-        <Link href="/signin" className="font-medium text-foreground underline-offset-4 hover:underline">
+        <Link href={tpl ? `/signin?template=${tpl}` : "/signin"} className="font-medium text-foreground underline-offset-4 hover:underline">
           Sign in
         </Link>
       </p>

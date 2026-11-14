@@ -31,12 +31,10 @@ function Row({ left, right }) {
 }
 
 export default function ResumePreview({ data, template = "classic", font = "default" }) {
-  const base = themes[template] ?? themes.classic;
-  // A chosen font replaces the template's own families everywhere, including
-  // the contact line, which otherwise has its own font.
+  const t = themes[template] ?? themes.classic;
+  // A font chosen in the editor replaces the template's own fonts everywhere,
+  // including the contact line.
   const stack = fontStack(font);
-  const strip = (c) => c.replace(/font-(resume|contact)\s?/g, "").trim();
-  const t = stack ? { ...base, root: strip(base.root), contact: strip(base.contact) } : base;
   const { basics, summary, education, skills, experience, projects } = data;
   const real = (v) => String(v ?? "").trim();
   const contactReal = [basics.phone, basics.location, basics.email].filter(real);
@@ -53,7 +51,7 @@ export default function ResumePreview({ data, template = "classic", font = "defa
   return (
     <article
       className={`resume-paper text-black ${t.root}`}
-      style={stack ? { fontFamily: stack, zoom: fontScale(font) } : undefined}
+      style={stack ? { fontFamily: stack, zoom: fontScale(font) } : { fontFamily: t.family }}
     >
       {/* ── Header ───────────────────────────────────────────── */}
       <header className={`mt-[6pt] ${t.header}`}>
@@ -62,6 +60,7 @@ export default function ResumePreview({ data, template = "classic", font = "defa
         </h1>
         <p
           className={`${t.contact} ${contactGhost ? "print:hidden" : ""}`}
+          style={!stack && t.contactFamily ? { fontFamily: t.contactFamily } : undefined}
           {...(contactGhost ? { "data-ph": "" } : {})}
         >
           {contact.map((item, i) => (
