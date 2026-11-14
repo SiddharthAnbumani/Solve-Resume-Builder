@@ -1,19 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { NotConnectedError, signUp } from "../../lib/auth-client";
+import { signUp } from "../../lib/auth-client";
 import { isEmail, passwordScore } from "../../lib/validation";
+import { useAuth } from "../AuthProvider";
 import FormField from "./FormField";
 import PasswordInput from "./PasswordInput";
 
 const STRENGTH = ["Too short", "Weak", "Okay", "Good", "Strong"];
 
 export default function SignUpForm() {
+  const router = useRouter();
+  const { user, setUser } = useAuth();
   const [values, setValues] = useState({
     name: "",
     email: "",
@@ -23,6 +27,10 @@ export default function SignUpForm() {
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
   const score = passwordScore(values.password);
+
+  useEffect(() => {
+    if (user) router.replace("/");
+  }, [user, router]);
 
   const set = (k) => (e) => {
     setValues((v) => ({ ...v, [k]: e.target.value }));
@@ -41,30 +49,34 @@ export default function SignUpForm() {
 
     setBusy(true);
     try {
-      await signUp({
+      const created = await signUp({
         name: values.name.trim(),
         email: values.email.trim(),
         password: values.password,
       });
+      setUser(created);
+      toast.success("Account created. Welcome!");
+      router.push("/");
     } catch (err) {
-      if (err instanceof NotConnectedError) {
-        toast.info("The sign-up form is ready; the backend isn't connected yet.");
-      } else {
-        toast.error(err.message || "Couldn't create your account.");
-      }
-    } finally {
+      if (err.code === "EMAIL_TAKEN") setErrors({ email: err.message });
+      else if (err.code === "VALIDATION" && err.details?.length) {
+        const byField = {};
+        for (const d of err.details) byField[d.path] ??= d.message;
+        setErrors(byField);
+      } else if (err.status === 429) setErrors({ form: err.message });
+      else toast.error(err.message || "Couldn't create your account.");
       setBusy(false);
     }
   };
 
   return (
     <>
-      <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
-      <p className="mt-1.5 text-sm text-muted-foreground">
+      <h1 className="text-center text-2xl font-semibold tracking-tight lg:text-left">Create your account</h1>
+      <p className="mt-1.5 text-center text-sm text-muted-foreground lg:text-left">
         Save your resumes and open them from any device.
       </p>
 
-      <form onSubmit={submit} noValidate className="mt-8 grid gap-5">
+      <form onSubmit={submit} noValidate className="mt-7 grid gap-5">
         <FormField id="name" label="Full name" error={errors.name}>
           <Input
             id="name"
@@ -139,6 +151,12 @@ export default function SignUpForm() {
             aria-describedby={errors.confirm ? "confirm-error" : undefined}
           />
         </FormField>
+
+        {errors.form && (
+          <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {errors.form}
+          </p>
+        )}
 
         <Button type="submit" size="lg" disabled={busy} className="h-11 w-full text-sm">
           {busy && <Loader2 className="animate-spin" />}

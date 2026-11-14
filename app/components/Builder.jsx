@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, FileDown, RotateCcw, Upload } from "lucide-react";
+import { AlertCircle, ArrowLeft, Check, Download, FileDown, Loader2, RotateCcw, Upload } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -44,7 +44,7 @@ function normalize(raw) {
 }
 
 export default function Builder({ id }) {
-  const { files, loaded, update } = useFiles();
+  const { files, loaded, cloud, saveState, update } = useFiles();
   const file = files.find((f) => f.id === id);
 
   const [tab, setTab] = useState("edit");
@@ -69,7 +69,7 @@ export default function Builder({ id }) {
   useEffect(() => {
     const fit = () => {
       const w = previewRef.current?.clientWidth ?? PAPER_W;
-      if (w > 0) setScale(Math.min(1, (w - 32) / PAPER_W));
+      if (w > 0) setScale(Math.min(1, (w - 24) / PAPER_W));
       setPaperH(paperRef.current?.offsetHeight ?? 1056);
     };
     fit();
@@ -160,15 +160,31 @@ export default function Builder({ id }) {
   return (
     <div className="flex h-dvh flex-col bg-muted/40 print:block print:h-auto print:bg-white">
       {/* ── Toolbar: back arrow + actions (no navbar on this page) ─────── */}
-      <div className="flex shrink-0 items-center gap-1.5 px-3 py-3 sm:gap-2 sm:px-4 print:hidden">
+      <div className="flex shrink-0 items-center gap-1.5 px-4 py-3 sm:gap-2 print:hidden">
         <Link
           href="/"
           aria-label="Back to my files"
           title="Back to my files"
-          className={cn(buttonVariants({ variant: "outline", size: "icon-lg" }), "mr-auto size-10 bg-background")}
+          className={cn(buttonVariants({ variant: "outline", size: "icon-lg" }), "size-10 bg-background")}
         >
           <ArrowLeft />
         </Link>
+        <div className="mr-auto flex min-w-0 items-center gap-1.5 pl-1 text-xs text-muted-foreground" aria-live="polite">
+          {!cloud ? (
+            <>
+              <Check className="size-3.5 shrink-0 text-emerald-600" />
+              <span className="truncate">
+                Saved<span className="hidden sm:inline"> on this device</span>
+              </span>
+            </>
+          ) : saveState === "saving" ? (
+            <><Loader2 className="size-3.5 animate-spin" /> Saving…</>
+          ) : saveState === "error" ? (
+            <span className="flex items-center gap-1.5 text-destructive"><AlertCircle className="size-3.5" /> Couldn’t save, retrying</span>
+          ) : (
+            <><Check className="size-3.5 text-emerald-600" /> Saved</>
+          )}
+        </div>
         <h1 className="sr-only">Solve Resumé</h1>
         <Button variant="outline" size="lg" aria-label="Reset" className="h-10 bg-background" onClick={() => setConfirmReset(true)}>
           <RotateCcw /> <span className="hidden md:inline">Reset</span>
@@ -221,7 +237,7 @@ export default function Builder({ id }) {
         {/* ── Preview ───────────────────────────────────────── */}
         <div
           ref={previewRef}
-          className={`min-h-0 overflow-auto p-4 print:block print:overflow-visible print:p-0 ${
+          className={`min-h-0 overflow-auto p-3 sm:p-4 print:block print:overflow-visible print:p-0 ${
             tab === "preview" ? "block" : "hidden"
           } lg:block`}
         >

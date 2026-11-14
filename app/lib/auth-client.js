@@ -1,22 +1,27 @@
-// UI-only placeholders. The Node backend isn't connected yet; when it is,
-// these two functions are the only place the forms need to change.
+import { api, ApiError } from "./api";
 
-export class NotConnectedError extends Error {
-  constructor() {
-    super("The backend isn't connected yet.");
-    this.name = "NotConnectedError";
-  }
+export async function signUp({ name, email, password }) {
+  const { user } = await api("/api/auth/register", { method: "POST", body: { name, email, password } });
+  return user;
 }
 
 export async function signIn({ email, password }) {
-  void email;
-  void password;
-  throw new NotConnectedError();
+  const { user } = await api("/api/auth/login", { method: "POST", body: { email, password } });
+  return user;
 }
 
-export async function signUp({ name, email, password }) {
-  void name;
-  void email;
-  void password;
-  throw new NotConnectedError();
+export async function signOut() {
+  await api("/api/auth/logout", { method: "POST", body: {} });
+}
+
+// The signed-in user, or null for guests. If the backend is unreachable we
+// treat you as a guest, so the app still works with files on this device.
+export async function getMe() {
+  try {
+    const { user } = await api("/api/auth/me");
+    return user;
+  } catch (err) {
+    if (err instanceof ApiError) return null;
+    return null;
+  }
 }

@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Copy,
+  CloudUpload,
   FilePlus2,
   FileText,
   Pencil,
+  LogOut,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -38,8 +40,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { useAuth } from "./components/AuthProvider";
 import Logo from "./components/Logo";
 import SmoothLink from "./components/SmoothLink";
+import ResumeStack from "./components/ResumeStack";
 import ResumeThumb from "./components/ResumeThumb";
 import { defaultResume } from "./lib/defaultResume";
 import { timeAgo, useFiles } from "./lib/files";
@@ -52,7 +56,10 @@ const navLink =
 
 export default function Landing() {
   const router = useRouter();
-  const { files, loaded, create, update, duplicate, remove } = useFiles();
+  const { user, logout } = useAuth();
+  const { files, loaded, cloud, localCount, create, update, duplicate, remove, importLocal } = useFiles();
+  const [moving, setMoving] = useState(false);
+  const [hideMove, setHideMove] = useState(false);
   const [renaming, setRenaming] = useState(null); // file being renamed
   const [newName, setNewName] = useState("");
   const [deleting, setDeleting] = useState(null); // file pending deletion
@@ -62,7 +69,29 @@ export default function Landing() {
   const shown = files.filter((f) => filter === "all" || statusOf(f) === filter);
 
   const open = (file) => router.push(`/builder/${file.id}`);
-  const start = (opts) => open(create(opts));
+  const start = async (opts) => {
+    try {
+      open(await create(opts));
+    } catch (err) {
+      toast.error(err.message || "Couldn't create the file.");
+    }
+  };
+
+  const moveLocal = async () => {
+    setMoving(true);
+    try {
+      const { moved, skipped } = await importLocal();
+      toast.success(
+        skipped
+          ? `Moved ${moved}. ${skipped} stayed on this device (file limit reached).`
+          : `Moved ${moved} resume${moved === 1 ? "" : "s"} to your account.`
+      );
+    } catch (err) {
+      toast.error(err.message || "Couldn't move your files.");
+    } finally {
+      setMoving(false);
+    }
+  };
 
   const saveRename = (e) => {
     e.preventDefault();
@@ -75,7 +104,7 @@ export default function Landing() {
     <div className="min-h-dvh bg-background">
       {/* ── Navbar ────────────────────────────────────────────── */}
       <header className="sticky top-0 z-20 h-20 border-b border-white/10 bg-black text-white">
-        <div className="mx-auto flex h-full max-w-7xl items-center gap-1 px-4 sm:px-8 lg:px-12">
+        <div className="mx-auto flex h-full max-w-7xl items-center gap-1 px-5 sm:px-8 lg:px-12">
           <Link href="/" aria-label="Solve home" className="mr-auto">
             <Logo />
           </Link>
@@ -85,7 +114,30 @@ export default function Landing() {
           <SmoothLink to="files" spy activeClass="text-white!" className={navLink}>
             My files
           </SmoothLink>
-          <Link href="/signin" className={navLink}>Sign in</Link>
+          {user ? (
+            <>
+              <span className="ml-2 hidden max-w-40 truncate text-sm text-white/70 md:block">
+                {user.name.split(" ")[0]}
+              </span>
+              <Button
+                variant="ghost"
+                size="lg"
+                aria-label="Sign out"
+                title="Sign out"
+                className="text-white/80 hover:bg-white/10 hover:text-white"
+                onClick={logout}
+              >
+                <LogOut /> <span className="hidden sm:inline">Sign out</span>
+              </Button>
+            </>
+          ) : user === null ? (
+            <Link
+              href="/signin"
+              className="rounded-md px-3 py-2 text-sm font-medium text-white/70 transition-colors hover:text-white"
+            >
+              Sign in
+            </Link>
+          ) : null}
           <Button
             size="icon-lg"
             aria-label="New resume"
@@ -99,20 +151,20 @@ export default function Landing() {
       </header>
 
       {/* ── Hero ──────────────────────────────────────────────── */}
-      <section className="bg-black text-white">
-        <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-14 sm:px-8 lg:px-12 md:py-20 lg:grid-cols-[1.1fr_1fr]">
-          <div>
+      <section className="overflow-hidden bg-black text-white">
+        <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 py-12 sm:px-8 md:py-20 lg:grid-cols-[1.1fr_1fr] lg:px-12">
+          <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
             <Badge variant="outline" className="border-white/25 text-white/80">
               Free · No sign-up · Saved in your browser
             </Badge>
-            <h1 className="mt-5 text-4xl leading-[1.1] font-semibold tracking-tight sm:text-5xl">
+            <h1 className="mt-5 text-[2.125rem] leading-[1.12] font-semibold tracking-tight sm:text-5xl">
               Your resume, built in minutes.
             </h1>
             <p className="mt-5 max-w-lg text-base leading-relaxed text-white/65 sm:text-lg">
               Fill in a simple form, watch the page update live, and download a
               clean one-page PDF with real, selectable text.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start">
               <SmoothLink
                 to="templates"
                 className={cn(
@@ -134,25 +186,19 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* A stack of template previews */}
-          <div className="relative mx-auto hidden h-[420px] w-full max-w-md lg:block" aria-hidden>
-            <div className="absolute top-4 left-2 -rotate-6 rounded-sm shadow-2xl ring-1 ring-white/10">
-              <ResumeThumb data={defaultResume} template="modern" width={250} />
-            </div>
-            <div className="absolute top-0 right-2 rotate-3 rounded-sm shadow-2xl ring-1 ring-white/10">
-              <ResumeThumb data={defaultResume} template="classic" width={270} />
-            </div>
-          </div>
+          {/* The same resume pages on every screen size */}
+          <ResumeStack variant="md" className="lg:hidden" />
+          <ResumeStack variant="lg" className="hidden lg:block" />
         </div>
       </section>
 
       {/* ── Templates ─────────────────────────────────────────── */}
-      <section id="templates" className="scroll-mt-24 mx-auto max-w-7xl px-4 py-14 sm:px-8 lg:px-12">
-        <h2 className="text-2xl font-semibold tracking-tight">Templates</h2>
-        <p className="mt-1.5 text-sm text-muted-foreground">
+      <section id="templates" className="scroll-mt-24 mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-14 lg:px-12">
+        <h2 className="text-center text-2xl font-semibold tracking-tight sm:text-left">Templates</h2>
+        <p className="mt-1.5 text-center text-sm text-muted-foreground sm:text-left">
           Pick a look. You can switch templates any time inside the editor.
         </p>
-        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
           {templates.map((t) => (
             <Card key={t.id} className="gap-0 py-0">
               <div className="flex justify-center bg-muted/60 px-4 pt-6">
@@ -160,8 +206,8 @@ export default function Landing() {
                   <ResumeThumb data={defaultResume} template={t.id} width={260} />
                 </div>
               </div>
-              <div className="grid gap-3 p-4">
-                <div>
+              <div className="grid gap-3 p-5 sm:p-4">
+                <div className="text-center sm:text-left">
                   <h3 className="font-semibold">{t.name}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">{t.description}</p>
                 </div>
@@ -175,26 +221,46 @@ export default function Landing() {
       </section>
 
       {/* ── My files ──────────────────────────────────────────── */}
-      <section id="files" className="min-h-[calc(100dvh-5rem)] scroll-mt-24 border-t bg-muted/40">
-        <div className="mx-auto max-w-7xl px-4 py-14 sm:px-8 lg:px-12">
-          <div className="flex flex-wrap items-center gap-3">
+      <section id="files" className="scroll-mt-24 border-t bg-muted/40 lg:min-h-[calc(100dvh-5rem)]">
+        <div className="mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-14 lg:px-12">
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
             <h2 className="text-2xl font-semibold tracking-tight">My files</h2>
             {loaded && <Badge variant="secondary">{files.length}</Badge>}
             <Button
               variant="outline"
               size="lg"
-              className="ml-auto bg-background"
+              className="h-10 w-full bg-background sm:ml-auto sm:w-auto"
               onClick={() => start({ template: "classic", blank: true })}
             >
               <FilePlus2 /> New blank resume
             </Button>
           </div>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Saved automatically in this browser. Nothing is uploaded.
+          <p className="mt-3 text-center text-sm text-muted-foreground sm:mt-1.5 sm:text-left">
+            {cloud
+              ? "Saved to your account, so you can open them on any device."
+              : "Saved automatically on this device. Sign in to keep them in your account."}
           </p>
 
+          {cloud && localCount > 0 && !hideMove && (
+            <Card className="mt-6 flex-col gap-3 border-0 bg-blue-50 px-4 py-4 ring-1 ring-blue-200 sm:flex-row sm:items-center">
+              <CloudUpload className="size-5 shrink-0 text-blue-700" />
+              <p className="flex-1 text-sm text-blue-950">
+                You have {localCount} resume{localCount === 1 ? "" : "s"} saved on this device. Move{" "}
+                {localCount === 1 ? "it" : "them"} to your account?
+              </p>
+              <div className="flex gap-2">
+                <Button size="lg" className="h-10" disabled={moving} onClick={moveLocal}>
+                  {moving ? "Moving…" : "Move to my account"}
+                </Button>
+                <Button variant="ghost" size="lg" className="h-10" onClick={() => setHideMove(true)}>
+                  Not now
+                </Button>
+              </div>
+            </Card>
+          )}
+
           {loaded && files.length === 0 && (
-            <Card className="mt-8 items-center gap-3 border border-dashed bg-transparent py-12 text-center ring-0">
+            <Card className="mt-8 items-center gap-3 border border-dashed bg-transparent px-5 py-12 text-center ring-0">
               <FileText className="size-8 text-muted-foreground" />
               <p className="font-medium">No files yet</p>
               <p className="max-w-xs text-sm text-muted-foreground">
@@ -204,7 +270,7 @@ export default function Landing() {
           )}
 
           {files.length > 0 && (
-            <Tabs value={filter} onValueChange={setFilter} className="mt-6">
+            <Tabs value={filter} onValueChange={setFilter} className="mt-6 items-center sm:items-start">
               <TabsList className="h-10">
                 <TabsTrigger value="all" className="h-8 px-3">All {files.length}</TabsTrigger>
                 <TabsTrigger value="draft" className="h-8 px-3">Drafts {count("draft")}</TabsTrigger>
@@ -282,9 +348,13 @@ export default function Landing() {
                       size="icon-lg"
                       aria-label="Duplicate"
                       className="size-10"
-                      onClick={() => {
-                        duplicate(f.id);
-                        toast.success("Duplicated.");
+                      onClick={async () => {
+                        try {
+                          await duplicate(f.id);
+                          toast.success("Duplicated.");
+                        } catch (err) {
+                          toast.error(err.message || "Couldn't duplicate.");
+                        }
                       }}
                     >
                       <Copy />
@@ -308,7 +378,7 @@ export default function Landing() {
       </section>
 
       <footer className="border-t bg-black px-4 py-6 text-center text-xs text-white/50">
-        Solve Resumé · your data never leaves this browser.
+        Solve Resumé
       </footer>
 
       {/* ── Rename ────────────────────────────────────────────── */}
@@ -345,8 +415,9 @@ export default function Landing() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete “{deleting?.name}”?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the file from this browser. It can’t be undone, so
-              export it first if you want a backup.
+              {cloud
+                ? "This permanently deletes the file from your account. It can’t be undone."
+                : "This removes the file from this device. It can’t be undone."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

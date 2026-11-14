@@ -1,20 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { NotConnectedError, signIn } from "../../lib/auth-client";
+import { signIn } from "../../lib/auth-client";
 import { isEmail } from "../../lib/validation";
+import { useAuth } from "../AuthProvider";
 import FormField from "./FormField";
 import PasswordInput from "./PasswordInput";
 
 export default function SignInForm() {
+  const router = useRouter();
+  const { user, setUser } = useAuth();
   const [values, setValues] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
+
+  // Already signed in? Nothing to do here.
+  useEffect(() => {
+    if (user) router.replace("/");
+  }, [user, router]);
 
   const set = (k) => (e) => {
     setValues((v) => ({ ...v, [k]: e.target.value }));
@@ -31,26 +40,25 @@ export default function SignInForm() {
 
     setBusy(true);
     try {
-      await signIn(values);
+      const signedIn = await signIn({ email: values.email.trim(), password: values.password });
+      setUser(signedIn);
+      toast.success(`Welcome back, ${signedIn.name.split(" ")[0]}.`);
+      router.push("/");
     } catch (err) {
-      if (err instanceof NotConnectedError) {
-        toast.info("The sign-in form is ready; the backend isn't connected yet.");
-      } else {
-        toast.error(err.message || "Couldn't sign you in.");
-      }
-    } finally {
+      if (err.status === 401 || err.status === 429) setErrors({ form: err.message });
+      else toast.error(err.message || "Couldn't sign you in.");
       setBusy(false);
     }
   };
 
   return (
     <>
-      <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
-      <p className="mt-1.5 text-sm text-muted-foreground">
+      <h1 className="text-center text-2xl font-semibold tracking-tight lg:text-left">Welcome back</h1>
+      <p className="mt-1.5 text-center text-sm text-muted-foreground lg:text-left">
         Sign in to open your saved resumes.
       </p>
 
-      <form onSubmit={submit} noValidate className="mt-8 grid gap-5">
+      <form onSubmit={submit} noValidate className="mt-7 grid gap-5">
         <FormField id="email" label="Email" error={errors.email}>
           <Input
             id="email"
@@ -90,6 +98,12 @@ export default function SignInForm() {
             aria-describedby={errors.password ? "password-error" : undefined}
           />
         </FormField>
+
+        {errors.form && (
+          <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {errors.form}
+          </p>
+        )}
 
         <Button type="submit" size="lg" disabled={busy} className="h-11 w-full text-sm">
           {busy && <Loader2 className="animate-spin" />}

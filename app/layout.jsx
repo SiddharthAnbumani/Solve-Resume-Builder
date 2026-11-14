@@ -1,5 +1,6 @@
 import { Inter, Montserrat, Tinos, Carlito } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "./components/AuthProvider";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -44,7 +45,7 @@ export default function RootLayout({ children }) {
       className={`${montserrat.variable} ${inter.variable} ${tinos.variable} ${carlito.variable}`}
     >
       <body className="font-montserrat antialiased">
-        {children}
+        <AuthProvider>{children}</AuthProvider>
         <Toaster position="top-center" />
       </body>
     </html>
